@@ -10,7 +10,8 @@ from app.db.base import Base
 from app.models.node import NodeStatus
 from app.models.proxy import (ProxyHostALPN, ProxyHostFingerprint,
                               ProxyHostSecurity, ProxyTypes)
-from app.models.user import UserDataLimitResetStrategy, UserStatus
+from app.models.user import (ReminderType, UserDataLimitResetStrategy,
+                             UserStatus)
 
 
 class Admin(Base):
@@ -30,6 +31,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(34, collation='NOCASE'), unique=True, index=True)
     proxies = relationship("Proxy", back_populates="user", cascade="all, delete-orphan")
+    notification_reminders = relationship("NotificationReminder", back_populates="user", cascade="all, delete-orphan")
     status = Column(Enum(UserStatus), nullable=False, default=UserStatus.active)
     used_traffic = Column(BigInteger, default=0)
     node_usages = relationship("NodeUserUsage", back_populates="user", cascade="all, delete-orphan")
@@ -220,12 +222,13 @@ class NodeUserUsage(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    created_at = Column(DateTime, unique=False, nullable=False) # one hour per record
+    created_at = Column(DateTime, unique=False, nullable=False)  # one hour per record
     user_id = Column(Integer, ForeignKey("users.id"))
     user = relationship("User", back_populates="node_usages")
     node_id = Column(Integer, ForeignKey("nodes.id"))
     node = relationship("Node", back_populates="user_usages")
     used_traffic = Column(BigInteger, default=0)
+
 
 class NodeUsage(Base):
     __tablename__ = "node_usages"
@@ -234,9 +237,19 @@ class NodeUsage(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    created_at = Column(DateTime, unique=False, nullable=False) # one hour per record
+    created_at = Column(DateTime, unique=False, nullable=False)  # one hour per record
     node_id = Column(Integer, ForeignKey("nodes.id"))
     node = relationship("Node", back_populates="usages")
     uplink = Column(BigInteger, default=0)
     downlink = Column(BigInteger, default=0)
 
+
+class NotificationReminder(Base):
+    __tablename__ = "notification_reminders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    user = relationship("User", back_populates="notification_reminders")
+    type = Column(Enum(ReminderType), nullable=False)
+    expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
